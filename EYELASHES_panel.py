@@ -1,6 +1,6 @@
 bl_info = {
     "name": "EyelashesGenerate",
-    "author": "koJuls",
+    "author": "bardelfs",
     "version": (1, 0),
     "blender": (2, 80, 0),
     "location": "Properties > Object > EyeLashes Generate",
@@ -91,7 +91,14 @@ bpy.types.Scene.RateGen = IntProperty (
         description="RateGen value",
         default=1,
         min=1,
-        max=100
+        max=1000
+        )
+bpy.types.Scene.MaxFrame= IntProperty (
+        name="MaxFrame",
+        description="MaxFrame value",
+        default=100,
+        min=1,
+        max=100000
         )
 
         
@@ -117,7 +124,7 @@ def main(context):
             bpy.context.selected_objects[i].scale[1] += random.uniform(scene.ScaleStart, scene.ScaleEnd)
             bpy.context.selected_objects[i].scale[2] += random.uniform(scene.ScaleStart, scene.ScaleEnd)
             bpy.context.selected_objects[i].location[2]+= random.uniform(scene.PosStart, scene.PosEnd)
-        if scene.frame_current == 100:
+        if scene.frame_current == scene.MaxFrame:
             #obj.name="tested"
             bpy.ops.screen.animation_cancel(restore_frame=True)
             bpy.app.handlers.frame_change_pre.remove(stop_playback)
@@ -188,6 +195,9 @@ class EyelashesPanel(bpy.types.Panel):
         layout.label(text="Rate Generation")
         row = layout.row()
         row.prop(scene, "RateGen")
+        layout.label(text="Max Frame")
+        row = layout.row()
+        row.prop(scene, "MaxFrame")
         # Big render button
         layout.label(text="Generate")
         row = layout.row()
