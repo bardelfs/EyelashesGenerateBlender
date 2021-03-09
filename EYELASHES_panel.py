@@ -119,7 +119,7 @@ def main(context):
             print(dir(bpy.context.selected_objects[i]))
             bpy.context.selected_objects[i].rotation_euler[0] += random.uniform(scene.RotateStartX, scene.RotateEndX)
             bpy.context.selected_objects[i].rotation_euler[1] += random.uniform(scene.RotateStartY, scene.RotateEndY)
-            bpy.context.selected_objects[i].rotation_euler[2] += random.uniform(scene.RotateStartZ, scene.RotateEndZ)+((scene.frame_current-50)*0.01)
+            bpy.context.selected_objects[i].rotation_euler[2] += random.uniform(scene.RotateStartZ, scene.RotateEndZ)+((scene.frame_current-scene.MaxFrame/2)*0.01)
             bpy.context.selected_objects[i].scale[0] += random.uniform(scene.ScaleStart, scene.ScaleEnd)
             bpy.context.selected_objects[i].scale[1] += random.uniform(scene.ScaleStart, scene.ScaleEnd)
             bpy.context.selected_objects[i].scale[2] += random.uniform(scene.ScaleStart, scene.ScaleEnd)
