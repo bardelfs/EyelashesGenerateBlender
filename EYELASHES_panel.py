@@ -1,10 +1,10 @@
 bl_info = {
     "name": "EyelashesGenerate",
     "author": "bardelfs",
-    "version": (1, 0),
+    "version": (1, 3),
     "blender": (2, 80, 0),
     "location": "Properties > Object > EyeLashes Generate",
-    "description": "Generate eyelashes from template",
+    "description": "Generate eyelashes from template (frame-stepping, undo-safe)",
     "warning": "",
     "doc_url": "",
     "category": "Add Mesh",
@@ -14,156 +14,153 @@ import bpy
 import random
 from bpy.props import FloatProperty, IntProperty
 
-# ŒÔÂ‰ÂÎÂÌËÂ ÔÓÎ¸ÁÓ‚‡ÚÂÎ¸ÒÍËı Ò‚ÓÈÒÚ‚ ÒˆÂÌ˚
-bpy.types.Scene.RotateStartX = FloatProperty(
-    name="Rotate Start X",
-    description="RotateStartX value",
-    default=-0.1,
-    min=-1,
-    max=0
-)
-bpy.types.Scene.RotateEndX = FloatProperty(
-    name="Rotate End X",
-    description="RotateEndX value",
-    default=0.1,
-    min=0,
-    max=1
-)
-bpy.types.Scene.RotateStartY = FloatProperty(
-    name="Rotate Start Y",
-    description="RotateStartY value",
-    default=-0.05,
-    min=-1,
-    max=0
-)
-bpy.types.Scene.RotateEndY = FloatProperty(
-    name="Rotate End Y",
-    description="RotateEndY value",
-    default=0.05,
-    min=0,
-    max=1
-)
-bpy.types.Scene.RotateStartZ = FloatProperty(
-    name="Rotate Start Z",
-    description="RotateStartZ value",
-    default=-0.1,
-    min=-1,
-    max=0
-)
-bpy.types.Scene.RotateEndZ = FloatProperty(
-    name="Rotate End Z",
-    description="RotateEndZ value",
-    default=0.1,
-    min=0,
-    max=1
-)
-bpy.types.Scene.ScaleEnd = FloatProperty(
-    name="Scale End",
-    description="ScaleEnd value",
-    default=0.1,
-    min=0,
-    max=1
-)
-bpy.types.Scene.ScaleStart = FloatProperty(
-    name="Scale Start",
-    description="ScaleStart value",
-    default=-0.1,
-    min=-1,
-    max=0
-)
-bpy.types.Scene.PosStart = FloatProperty(
-    name="Pos Start",
-    description="PosStart value",
-    default=0,
-    min=-1,
-    max=0
-)
-bpy.types.Scene.PosEnd = FloatProperty(
-    name="Pos End",
-    description="PosEnd value",
-    default=0,
-    min=0,
-    max=1
-)
-bpy.types.Scene.RateGen = IntProperty(
-    name="RateGen",
-    description="RateGen value",
-    default=1,
-    min=1,
-    max=1000
-)
-bpy.types.Scene.MaxFrame = IntProperty(
-    name="MaxFrame",
-    description="MaxFrame value",
-    default=100,
-    min=1,
-    max=100000
-)
 
-def main(context):
-    obj = bpy.context.selected_objects[0] if bpy.context.selected_objects else None
-    if not obj:
-        self.report({'ERROR'}, "No object selected")
-        return
-    
-    print(f"Selected object: {obj.name}")
+# ---------- Scene props (–∫–∞–∫ –≤ –æ—Ä–∏–≥–∏–Ω–∞–ª–µ) ----------
+def ensure_scene_props():
+    S = bpy.types.Scene
+    if not hasattr(S, "RotateStartX"):
+        S.RotateStartX = FloatProperty(name="Rotate Start X", description="RotateStartX value", default=-0.1, min=-1, max=0)
+        S.RotateEndX   = FloatProperty(name="Rotate End X",   description="RotateEndX value", default= 0.1, min= 0, max=1)
+        S.RotateStartY = FloatProperty(name="Rotate Start Y", description="RotateStartY value", default=-0.05, min=-1, max=0)
+        S.RotateEndY   = FloatProperty(name="Rotate End Y",   description="RotateEndY value", default= 0.05, min= 0, max=1)
+        S.RotateStartZ = FloatProperty(name="Rotate Start Z", description="RotateStartZ value", default=-0.1, min=-1, max=0)
+        S.RotateEndZ   = FloatProperty(name="Rotate End Z",   description="RotateEndZ value", default= 0.1, min= 0, max=1)
+        S.ScaleEnd     = FloatProperty(name="Scale End",      description="ScaleEnd value",   default= 0.1, min= 0, max=1)
+        S.ScaleStart   = FloatProperty(name="Scale Start",    description="ScaleStart value", default=-0.1, min=-1, max=0)
+        S.PosStart     = FloatProperty(name="Pos Start",      description="PosStart value", default=0, min=-1, max=0)
+        S.PosEnd       = FloatProperty(name="Pos End",        description="PosEnd value",   default=0, min=0, max=1)
+        S.RateGen      = IntProperty  (name="RateGen",        description="Duplicate every N frames", default=1, min=1, max=1000)
+        S.MaxFrame     = IntProperty  (name="MaxFrame",       description="Last frame to reach",       default=100, min=1, max=100000)
 
-    def stop_playback(scene):
-        # ¬˚ÔÓÎÌˇÂÏ ÓÔÂ‡ˆË˛ Í‡Ê‰˚Â `RateGen` Í‡‰Ó‚
-        if scene.frame_current % scene.RateGen == 0:
-            print(f"Duplicating object at frame {scene.frame_current}")
-            # ƒÛ·ÎËÛÂÏ Ó·˙ÂÍÚ, Û·Â‰Ë‚¯ËÒ¸, ˜ÚÓ ÍÓÌÚÂÍÒÚ ÍÓÂÍÚÌ˚È
-            bpy.context.view_layer.objects.active = obj
-            bpy.ops.object.select_all(action='DESELECT')  # —ÌËÏÂÏ ‚˚‰ÂÎÂÌËÂ ÒÓ ‚ÒÂı Ó·˙ÂÍÚÓ‚
-            obj.select_set(True)  # ¬˚‰ÂÎËÏ ËÒıÓ‰Ì˚È Ó·˙ÂÍÚ
-            bpy.ops.object.duplicate(linked=False)
-            new_obj = bpy.context.view_layer.objects.active  # ÕÓ‚˚È Ó·˙ÂÍÚ ÒÚ‡ÌÓ‚ËÚÒˇ ‡ÍÚË‚Ì˚Ï
-            
-            bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
-            # ”·Â‰ËÏÒˇ, ˜ÚÓ Ó·˙ÂÍÚ ‰Û·ÎËÓ‚‡Ì
-            print(f"New object duplicated: {new_obj.name}")
+ensure_scene_props()
 
-            # Œ˜Ë˘‡ÂÏ ‡ÌËÏ‡ˆË˛ Û ÌÓ‚Ó„Ó Ó·˙ÂÍÚ‡ Ë ÔËÏÂÌˇÂÏ ÒÎÛ˜‡ÈÌ˚Â Ú‡ÌÒÙÓÏ‡ˆËË
-            new_obj.animation_data_clear()
 
-            new_obj.rotation_euler[0] += random.uniform(scene.RotateStartX, scene.RotateEndX)
-            new_obj.rotation_euler[1] += random.uniform(scene.RotateStartY, scene.RotateEndY)
-            new_obj.rotation_euler[2] += random.uniform(scene.RotateStartZ, scene.RotateEndZ) + (
-                        (scene.frame_current - scene.MaxFrame / 2) * 0.01)
-            new_obj.scale[0] += random.uniform(scene.ScaleStart, scene.ScaleEnd)
-            new_obj.scale[1] += random.uniform(scene.ScaleStart, scene.ScaleEnd)
-            new_obj.scale[2] += random.uniform(scene.ScaleStart, scene.ScaleEnd)
-            new_obj.location[2] += random.uniform(scene.PosStart, scene.PosEnd)
+# ---------- –î—É–±–ª–∏—Ä–æ–≤–∞–Ω–∏–µ —á–µ—Ä–µ–∑ data-API ----------
+def duplicate_object_datablock(src_obj: bpy.types.Object) -> bpy.types.Object:
+    """–°–æ–∑–¥–∞—Ç—å –Ω–µ–∑–∞–≤–∏—Å–∏–º—É—é –∫–æ–ø–∏—é –æ–±—ä–µ–∫—Ç–∞ –∏ –µ–≥–æ data, –∑–∞–ª–∏–Ω–∫–æ–≤–∞—Ç—å –≤ —Ç–µ –∂–µ –∫–æ–ª–ª–µ–∫—Ü–∏–∏."""
+    new_obj = src_obj.copy()
+    if src_obj.data:
+        new_obj.data = src_obj.data.copy()
+    if src_obj.users_collection:
+        for col in src_obj.users_collection:
+            col.objects.link(new_obj)
+    else:
+        bpy.context.scene.collection.objects.link(new_obj)
+    # –ß–∏—Å—Ç–∏–º –∞–Ω–∏–º–∞—Ü–∏—é —É –∫–æ–ø–∏–∏
+    if new_obj.animation_data:
+        new_obj.animation_data_clear()
+    new_obj.parent = None
+    new_obj.matrix_parent_inverse.identity()
+    return new_obj
 
-            bpy.ops.object.select_all(action='DESELECT')  # —ÌËÏÂÏ ‚˚‰ÂÎÂÌËÂ ÒÓ ‚ÒÂı Ó·˙ÂÍÚÓ‚
-        # ŒÒÚ‡Ì‡‚ÎË‚‡ÂÏ ‡ÌËÏ‡ˆË˛ Ì‡ ÔÓÒÎÂ‰ÌÂÏ Í‡‰Â
-        if scene.frame_current >= scene.MaxFrame:
-            print(f"Stopping playback at frame {scene.frame_current}")
-            bpy.ops.screen.animation_cancel(restore_frame=True)
-            if stop_playback in bpy.app.handlers.frame_change_pre:
-                bpy.app.handlers.frame_change_pre.remove(stop_playback)
-        obj.select_set(True)
-        bpy.context.view_layer.objects.active = obj
-    if stop_playback not in bpy.app.handlers.frame_change_pre:
-        bpy.app.handlers.frame_change_pre.append(stop_playback)
-    
-    bpy.ops.screen.animation_play()
 
-# ŒÔÂ‡ÚÓ, Á‡ÔÛÒÍ‡˛˘ËÈ ÔÓˆÂÒÒ ÒÓÁ‰‡ÌËˇ ÂÒÌËˆ
+# ---------- –û–ø–µ—Ä–∞—Ç–æ—Ä: —à–∞–≥ –ø–æ –∫–∞–¥—Ä–∞–º –∏ —Å–ø–∞–≤–Ω –∫–æ–ø–∏–π ----------
 class EyelashesOperator(bpy.types.Operator):
-    """Tooltip"""
+    """Spawn duplicates along the animated motion of the source; copies keep pose, no animation."""
     bl_idname = "object.eyelashes_operator"
     bl_label = "Eyelashes Create"
+    bl_options = {'REGISTER', 'UNDO', 'UNDO_GROUPED'}
+
+    _timer = None
+    _source_name = None
+    _start_frame = 0
+    _target_last = 0
+    _spawned = 0
 
     @classmethod
     def poll(cls, context):
         return context.active_object is not None
 
     def execute(self, context):
-        main(context)
-        return {'FINISHED'}
+        # –Ω–∞ —Å–ª—É—á–∞–π –≤—ã–∑–æ–≤–∞ –Ω–µ —á–µ—Ä–µ–∑ –∫–Ω–æ–ø–∫—É ‚Äî –ø–µ—Ä–µ–π—Ç–∏ –≤ invoke
+        return self.invoke(context, None)
 
-# œ‡ÌÂÎ¸ ‰Îˇ Ì‡ÒÚÓÈÍË Ô‡‡ÏÂÚÓ‚
+    def invoke(self, context, event):
+        src = context.active_object
+        if not src:
+            self.report({'ERROR'}, "No active object selected")
+            return {'CANCELLED'}
+
+        scn = context.scene
+        self._source_name = src.name
+        self._start_frame = scn.frame_current
+        self._target_last = scn.MaxFrame
+        self._spawned = 0
+
+        # —Ç–∞–π–º–µ—Ä –¥–ª—è –º–æ–¥–∞–ª—å–Ω–æ–≥–æ —Ü–∏–∫–ª–∞
+        wm = context.window_manager
+        win = context.window or bpy.context.window
+        if win is None:
+            self.report({'ERROR'}, "No active window found for timer")
+            return {'CANCELLED'}
+        self._timer = wm.event_timer_add(0.0, window=win)  # 0.0 = —Ç–∏–∫–∏ –ø–æ –≤–æ–∑–º–æ–∂–Ω–æ—Å—Ç–∏
+        wm.modal_handler_add(self)
+
+        print(f"[Eyelashes] Start: src={self._source_name}, start={self._start_frame}, end={self._target_last}")
+        return {'RUNNING_MODAL'}
+
+    def modal(self, context, event):
+        if event.type in {'ESC', 'RIGHTMOUSE'}:
+            print(f"[Eyelashes] Cancelled. Spawned={self._spawned}")
+            return self._finish(context, restore_frame=True, cancelled=True)
+
+        if event.type == 'TIMER':
+            scn = context.scene
+            cur = scn.frame_current
+
+            # –î—É–±–ª–∏—Ä—É–µ–º –Ω–∞ –∫–∞–∂–¥–æ–º –∫—Ä–∞—Ç–Ω–æ–º RateGen –∫–∞–¥—Ä–µ
+            if (cur - self._start_frame) % max(1, scn.RateGen) == 0:
+                src = bpy.data.objects.get(self._source_name)
+                if src is None:
+                    self.report({'WARNING'}, "Source object disappeared. Stopping.")
+                    return self._finish(context, restore_frame=True)
+
+                # –í–∞–∂–Ω–æ: –±–µ—Ä–µ–º –ø–æ–∑—É –∏–∑ evaluated depsgraph –Ω–∞ —Ç–µ–∫—É—â–µ–º –∫–∞–¥—Ä–µ
+                depsgraph = context.evaluated_depsgraph_get()
+                src_eval = src.evaluated_get(depsgraph)
+                world_mx = src_eval.matrix_world.copy()
+
+                new_obj = duplicate_object_datablock(src)
+                # —Å—Ç–∞–≤–∏–º –≤ —Ç—É –∂–µ –º–∏—Ä–æ–≤—É—é –ø–æ–∑—É, —á—Ç–æ —É –æ—Ä–∏–≥–∏–Ω–∞–ª–∞ –Ω–∞ —ç—Ç–æ–º –∫–∞–¥—Ä–µ
+                new_obj.matrix_world = world_mx
+
+                # –†–∞–Ω–¥–æ–º-—Ç—Ä–∞–Ω—Å—Ñ–æ—Ä–º–∞—Ü–∏–∏ (–∫–∞–∫ –≤ –∏—Å—Ö–æ–¥–Ω–∏–∫–µ)
+                new_obj.rotation_euler[0] += random.uniform(scn.RotateStartX, scn.RotateEndX)
+                new_obj.rotation_euler[1] += random.uniform(scn.RotateStartY, scn.RotateEndY)
+                new_obj.rotation_euler[2] += random.uniform(scn.RotateStartZ, scn.RotateEndZ) + (
+                    (cur - scn.MaxFrame / 2) * 0.01
+                )
+                new_obj.scale[0] += random.uniform(scn.ScaleStart, scn.ScaleEnd)
+                new_obj.scale[1] += random.uniform(scn.ScaleStart, scn.ScaleEnd)
+                new_obj.scale[2] += random.uniform(scn.ScaleStart, scn.ScaleEnd)
+                new_obj.location[2] += random.uniform(scn.PosStart, scn.PosEnd)
+
+                self._spawned += 1
+                print(f"[Eyelashes] Frame {cur}: duplicated -> {new_obj.name} (total {self._spawned})")
+
+            # –ü–µ—Ä–µ—Ö–æ–¥–∏–º –Ω–∞ —Å–ª–µ–¥—É—é—â–∏–π –∫–∞–¥—Ä
+            if cur >= self._target_last:
+                print(f"[Eyelashes] Reached end={self._target_last}. Spawned={self._spawned}")
+                return self._finish(context, restore_frame=True)
+
+            scn.frame_set(cur + 1)  # —Å–æ–±—Å—Ç–≤–µ–Ω–Ω–æ –¥–≤–∏–∂–µ–Ω–∏–µ –ø–æ —Ç–∞–π–º–ª–∞–π–Ω—É
+
+        return {'RUNNING_MODAL'}
+
+    def _finish(self, context, restore_frame=True, cancelled=False):
+        wm = context.window_manager
+        if self._timer is not None:
+            wm.event_timer_remove(self._timer)
+            self._timer = None
+        if restore_frame:
+            try:
+                context.scene.frame_set(self._start_frame)
+            except Exception:
+                pass
+        return {'CANCELLED' if cancelled else 'FINISHED'}
+
+
+# ---------- –ü–∞–Ω–µ–ª—å UI (–∫–∞–∫ —É —Ç–µ–±—è) ----------
 class EyelashesPanel(bpy.types.Panel):
     """Creates a Panel in the scene context of the properties editor"""
     bl_label = "EyeLashes Generate"
@@ -174,55 +171,50 @@ class EyelashesPanel(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-
         scene = context.scene
-    
 
-        # Create a simple row.
         layout.label(text="Random Rotate Interval")
+        row = layout.row()
+        row.prop(scene, "RotateStartX"); row.prop(scene, "RotateEndX")
+        row = layout.row()
+        row.prop(scene, "RotateStartY"); row.prop(scene, "RotateEndY")
+        row = layout.row()
+        row.prop(scene, "RotateStartZ"); row.prop(scene, "RotateEndZ")
 
-        row = layout.row()
-        row.prop(scene, "RotateStartX")
-        row.prop(scene, "RotateEndX")
-        row = layout.row()
-        row.prop(scene, "RotateStartY")
-        row.prop(scene, "RotateEndY")
-        row = layout.row()
-        row.prop(scene, "RotateStartZ")
-        row.prop(scene, "RotateEndZ")
-        #row.prop(R_X, "endX")
-        
         layout.label(text="Random Scale Interval")
         row = layout.row()
-        row.prop(scene, "ScaleStart")
-        row.prop(scene, "ScaleEnd")
+        row.prop(scene, "ScaleStart"); row.prop(scene, "ScaleEnd")
+
         layout.label(text="Random Position Interval")
         row = layout.row()
-        row.prop(scene, "PosStart")
-        row.prop(scene, "PosEnd")
-        
+        row.prop(scene, "PosStart"); row.prop(scene, "PosEnd")
+
         layout.label(text="Rate Generation")
         row = layout.row()
         row.prop(scene, "RateGen")
+
         layout.label(text="Max Frame")
         row = layout.row()
         row.prop(scene, "MaxFrame")
-        # Big render button
-        layout.label(text="Generate")
+
+        layout.separator()
+        layout.label(text="Generate along animation")
         row = layout.row()
         row.scale_y = 3.0
         row.operator("object.eyelashes_operator")
-# –Â„ËÒÚ‡ˆËˇ ÍÎ‡ÒÒÓ‚
-def register():
-    bpy.utils.register_class(EyelashesPanel)
-    bpy.utils.register_class(EyelashesOperator)
 
-# Unregister function
+
+# ---------- –†–µ–≥–∏—Å—Ç—Ä–∞—Ü–∏—è ----------
+classes = (EyelashesPanel, EyelashesOperator)
+
+def register():
+    ensure_scene_props()
+    for c in classes:
+        bpy.utils.register_class(c)
+
 def unregister():
-    bpy.utils.unregister_class(EyelashesPanel)
-    bpy.utils.unregister_class(EyelashesOperator)
-    if stop_playback in bpy.app.handlers.frame_change_pre:
-        bpy.app.handlers.frame_change_pre.remove(stop_playback)
+    for c in reversed(classes):
+        bpy.utils.unregister_class(c)
 
 if __name__ == "__main__":
     register()
